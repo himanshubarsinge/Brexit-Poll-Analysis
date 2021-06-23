@@ -33,7 +33,7 @@ se_d <- 2 * standard_error_x_hat
 ```
   
   
-## Actual Brexit poll estimates
+### Actual Brexit poll estimates
 Load and inspect the brexit_polls dataset from dslabs, which contains actual polling data for the 6 months before the Brexit vote. Raw proportions of voters preferring “Remain”, “Leave”, and “Undecided” are available (remain, leave, undecided) The spread is also available (spread), which is the difference in the raw proportion of voters choosing “Remain” and the raw proportion choosing “Leave”.
 ```{r}
 head(brexit_polls)
@@ -51,7 +51,7 @@ The average and standard deviation of x_hat
 mean(polls$x_hat)
 sd(polls$x_hat)
 ```
-## Confidence interval of a Brexit poll
+### Confidence interval of a Brexit poll
 Consider the first poll in brexit_polls, a YouGov poll run on the same day as the Brexit referendum:
 ```{r}
 you_gov <- polls[1, ]
@@ -64,8 +64,122 @@ N <- you_gov$samplesize
 se <- sqrt(avg*(1-avg)/N)
 avg + c(-1,1) * qnorm(0.975)*se
 ```
-We see that the poll is 95% confident that the result will be in the range (0.506, 0.534) that is "Remain".
+We see that the poll is 95% confident that the result will be in the range (0.506, 0.534) that is "Remain".  
+  
+### Confidence intervals for polls in June
+Create the data frame june_polls containing only Brexit polls ending in June 2016 (enddate of “2016-06-01” and later). We will calculate confidence intervals for all polls and determine how many cover the true value of d.
 
+First, use mutate() to calculate a plug-in estimate se_x_hat for the standard error of the estimate SE for each poll given its sample size and value of X_hat. Second, we use mutate() to calculate an estimate for the standard error of the spread for each poll given the value of se_x_hat. Then, we use mutate() to calculate upper and lower bounds for 95% confidence intervals of the spread. Last, add a column hit that indicates whether the confidence interval for each poll covers the correct spread 𝑑=−0.038.
+```{r}
+june_polls <- polls %>%
+  filter(enddate>="2016-06-1")
+head(june_polls)
+
+d <- -0.38
+june_polls <- june_polls %>%
+  mutate(se_x_hat = sqrt(x_hat * (1-x_hat)/ samplesize), se_spread = 2*se_x_hat,
+         lower = spread - qnorm(0.975) * se_spread,
+         upper = spread + qnorm(0.975) * se_spread,
+         hit = (lower < 2*p-1 & upper > 2*p-1))
+mean(june_polls$lower < 0 & june_polls$upper > 0) #proportion of polls that had a 0 in their prediction
+
+mean(june_polls$hit) #avg hitrate
+
+head(june_polls)
+```
+### Hit rate by pollster
+To find the proportion of hits for each pollster and the number of polls per pollster.
+```{r}
+june_polls_grouped <- june_polls %>%
+  group_by(pollster) %>%
+  summarize(n_polls = n(), hits = sum(hit))
+june_polls_grouped
+```
+### Boxplot of Brexit polls by poll type
+```{r fig.align='center', fig.width=10}
+ggplot(june_polls, aes(poll_type, spread))+
+  geom_boxplot()+
+  geom_point()
+```
+
+### Combined spread across poll type
+We Calculate the confidence intervals of the spread combined across all polls in june_polls, grouping by poll type. To determine the standard error of the spread, we will need to double the standard error of the estimate.
+```{r}
+combined_by_type <- june_polls %>%
+        group_by(poll_type) %>%
+        summarize(N = sum(samplesize),
+                  spread = sum(spread*samplesize)/N,
+                  p_hat = (spread + 1)/2,
+                  se_spread = 2 * sqrt(p_hat*(1-p_hat)/N),
+                  lower = spread - qnorm(0.975) * se_spread,
+                  upper = spread + qnorm(0.975) * se_spread)
+combined_by_type
+```
+
+
+### Chi-squared p-value test
+The following code computes the confidence intervals for all Brexit polls in 2016 and then calculates whether the confidence interval covers the actual value of the spread 𝑑=−0.038 :
+```{r}
+brexit_hit <- brexit_polls %>%
+  mutate(p_hat = (spread + 1)/2,
+         se_spread = 2*sqrt(p_hat*(1-p_hat)/samplesize),
+         spread_lower = spread - qnorm(.975)*se_spread,
+         spread_upper = spread + qnorm(.975)*se_spread,
+         hit = spread_lower < -0.038 & spread_upper > -0.038) %>%
+  select(poll_type, hit)
+```
+We use brexit_hit to make a two-by-two table of poll type and hit status. Then use the chisq.test() function to perform a chi-squared test to determine whether the difference in hit rate is significant.
+  
+  What is the p-value of the chi-squared test comparing the hit rate of online and telephone polls?
+```{r}
+totals <- brexit_hit%>%
+  summarize(online_yes=sum(poll_type=="Online" & hit==TRUE),
+            online_no=sum(poll_type=="Online" & hit==FALSE),
+            tele_yes=sum(hit==TRUE & poll_type=='Telephone'),
+            tele_no=sum(hit == FALSE & poll_type == 'Telephone'))
+totals
+```
+```{r}
+two_by_two <- tibble(hit = c('yes','no'),
+                     online = c(totals$online_yes, totals$online_no),
+                     telephone = c(totals$tele_yes, totals$tele_no))
+two_by_two
+```
+```{r}
+chisq_test <- two_by_two %>% select(-hit) %>% chisq.test()
+chisq_test
+```
+```{r}
+online_yes_odds <- (two_by_two$online[1] / sum(two_by_two$online)) / (two_by_two$online[2] / sum(two_by_two$online))
+online_yes_odds
+telephone_yes_odds <- (two_by_two$telephone[1] / sum(two_by_two$telephone)) / (two_by_two$telephone[2] / sum(two_by_two$telephone))
+telephone_yes_odds
+online_yes_odds / telephone_yes_odds
+```
+The odds are for online polls to hit versus telephone polls are 4.15 larger.  
+  
+  
+### Plotting spread over time
+```{r fig.align='center', fig.width=10}
+brexit_polls %>%
+  ggplot(aes(enddate, spread, color=poll_type))+
+  geom_smooth(method = "loess", span=0.4)+
+  geom_point(aes(color=poll_type))+
+  geom_hline(yintercept = -0.038)
+```
+### Plotting raw percentages over time
+```{r}
+brexit_long <- brexit_polls %>%
+    gather(vote, proportion, "remain":"undecided") %>%
+    mutate(vote = factor(vote))
+head(brexit_long)
+```
+```{r fig.align='center', fig.width=10}
+brexit_long %>%
+  ggplot(aes(enddate, proportion, color=vote))+
+           geom_smooth(method = "loess", span=0.3)
+           
+```
 
 
 
