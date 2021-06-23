@@ -1,0 +1,78 @@
+---
+title: "Brexit Poll Analysis"
+output: html_notebook
+---
+# Overview
+In June 2016, the United Kingdom (UK) held a referendum to determine whether the country would “Remain” in the European Union (EU) or “Leave” the EU. This referendum is commonly known as Brexit. Although the media and others interpreted poll results as forecasting “Remain” ( 𝑝>0.5) , the actual proportion that voted “Remain” was only 48.1% (𝑝=0.481) and the UK thus voted to leave the EU. Pollsters in the UK were criticized for overestimating support for “Remain”.
+In this project, you will analyze real Brexit polling data to develop polling models to forecast Brexit results.
+```{r}
+library(tidyverse)
+library(dslabs)
+data(brexit_polls)
+options(digits = 3)
+```
+Define p=0.481 as the actual percent voting for "Remain". The spread being 2p-1.
+```{r}
+p <- 0.481
+d <- 2*p - 1
+```
+Considering a poll of 1500 voters, the real values of sample parameters are:-
+```{r}
+N <- 1500
+expected <- N*p #expected total number of voters in the sample choosing “Remain”
+expected
+```
+```{r}
+se_remain <- sqrt(N*p*(1-p)) #standard error of the total number of voters in the sample choosing “Remain”
+se_remain
+
+x_hat <- p #expected value of X_hat , the proportion of “Remain” voters
+x_hat
+standard_error_x_hat <- sqrt(x_hat * (1-x_hat)/N)
+se_d <- 2 * standard_error_x_hat
+```
+  
+  
+## Actual Brexit poll estimates
+Load and inspect the brexit_polls dataset from dslabs, which contains actual polling data for the 6 months before the Brexit vote. Raw proportions of voters preferring “Remain”, “Leave”, and “Undecided” are available (remain, leave, undecided) The spread is also available (spread), which is the difference in the raw proportion of voters choosing “Remain” and the raw proportion choosing “Leave”.
+```{r}
+head(brexit_polls)
+```
+
+The average and standard deviation of the observed spreads is given by
+```{r}
+polls <- brexit_polls %>%
+  mutate(x_hat = (spread+1)/2)
+mean(polls$spread)
+sd(polls$spread)
+```
+The average and standard deviation of x_hat
+```{r}
+mean(polls$x_hat)
+sd(polls$x_hat)
+```
+## Confidence interval of a Brexit poll
+Consider the first poll in brexit_polls, a YouGov poll run on the same day as the Brexit referendum:
+```{r}
+you_gov <- polls[1, ]
+```
+We compute the 95% confidence interval for the poll.
+```{r}
+avg <- you_gov$x_hat
+N <- you_gov$samplesize
+
+se <- sqrt(avg*(1-avg)/N)
+avg + c(-1,1) * qnorm(0.975)*se
+```
+We see that the poll is 95% confident that the result will be in the range (0.506, 0.534) that is "Remain".
+
+
+
+
+
+
+
+
+
+
+
