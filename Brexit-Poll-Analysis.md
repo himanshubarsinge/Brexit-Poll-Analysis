@@ -9,7 +9,7 @@ the EU. This referendum is commonly known as Brexit. Although the media
 and others interpreted poll results as forecasting “Remain” ( 𝑝&gt;0.5)
 , the actual proportion that voted “Remain” was only 48.1% (𝑝=0.481) and
 the UK thus voted to leave the EU. Pollsters in the UK were criticized
-for overestimating support for “Remain”. In this project, you will
+for overestimating support for “Remain”. In this project, we will
 analyze real Brexit polling data to develop polling models to forecast
 Brexit results.
 
