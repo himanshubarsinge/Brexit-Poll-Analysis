@@ -386,6 +386,7 @@ brexit_polls %>%
     ## `geom_smooth()` using formula 'y ~ x'
 
 <img src="Brexit-Poll-Analysis_files/figure-gfm/unnamed-chunk-19-1.png" style="display: block; margin: auto;" />
+
 ### Plotting raw percentages over time
 
 ``` r
